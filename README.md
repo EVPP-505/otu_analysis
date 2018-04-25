@@ -36,18 +36,18 @@ We want a well-documented project describing each step of your processing.  Thin
 
 The list below contains several possible avenues for analysis, but is **not** meant to suggest we will or need to accomplish everything; there simply is not enough time or resources.
 
-1) Alpha diversity (within sample):
+1) Alpha diversity (within sample):  
     i) Shannon H’ Statistic
     i) Simpson Index
     i) Rarefaction curves
 
-2) Beta diversity (between sample):
+2) Beta diversity (between sample):  
     i) nMDS plots
     i) PCA
     i) PCoA
     i) RDA  
   
-3) Plots:
+3) Plots:  
     i) Bar charts
     i) Pie charts
     i) Heatmaps
