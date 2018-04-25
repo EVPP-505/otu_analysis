@@ -32,7 +32,7 @@ We want a well-documented project describing each step of your processing.  Thin
 * Describe the outcome?  
 * **MOST IMPORTANTLY,** could someone (not you) read the code and replicate the analysis?
 
-**Per Prof. Morrow: ** A basic test that I would like to do with the student to compare whether there are significant community level differences between upstream and downstream sites is a PERMANOVA of Bray-Curtis dissimilarities (adonis in R package Vegan; Okasanen et al. 2013).
+**Per Prof. Morrow:** A basic test that I would like to do with the student to compare whether there are significant community level differences between upstream and downstream sites is a PERMANOVA of Bray-Curtis dissimilarities (adonis in R package Vegan; Okasanen et al. 2013).
 
 The list below contains several possible avenues for analysis, but is **not** meant to suggest we will or need to accomplish everything; there simply is not enough time or resources.
 
@@ -42,7 +42,7 @@ The list below contains several possible avenues for analysis, but is **not** me
     iii) Rarefaction curves
 
 2) Beta diversity (between sample):  
-    i) nMDS plots
+    i) nMDS plots  
     ii) PCA  
     iii) PCoA  
     iv) RDA  
