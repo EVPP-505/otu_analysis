@@ -84,7 +84,7 @@ bacteria <- otu_data %>%
 bacteria
 ```
 
-There are now 1065 (`nrow(bacteria)`) rows from the original 1475 (`nrow(otu_data)`).  That's not a huge reduction, but we have been able to reduce the volume of data to analyze, focusing on what seems the dominant phyla.  Let's take a look at the sum for each sample.
+There are now 1065 (number of rows in bacteria: `r nrow(bacteria)`) rows from the original 1475 (number of rows in otu_data: `r nrow(otu_data)`).  That's not a huge reduction, but we have been able to reduce the volume of data to analyze, focusing on what seems the dominant phyla.  Let's take a look at the sum for each sample.
 
 ```{r sum-samples}
 bacteria %>%
@@ -116,7 +116,7 @@ phylum_subset <- bacteria %>%
 phylum_subset
 ```
 
-We are left with 8 (`nrow(phylum_subset`)) phyla, so we can extract just those from the OTU table.
+We are left with 8 (number of rows in phylum_subset: `r nrow(phylum_subset)`) phyla, so we can extract just those from the OTU table.
 
 ```{r extract-phy}
 # Use the results of the relative abundance to filter the main
@@ -128,7 +128,7 @@ two_pct_abund # print the result
 
 ```
 
-We now have a set of 1006 (`nrow(two_pct_abund`)) entries.  Let's take a look at means for upstream versus downstream.  Per the information provided with the data, the samples 1-6 are upstream and 7-12 are downstream.
+We now have a set of 1006 (number of rows in two_pct_abund: `r nrow(two_pct_abund)`) entries.  Let's take a look at means for upstream versus downstream.  Per the information provided with the data, the samples 1-6 are upstream and 7-12 are downstream.
 
 ```{r upstream-bacteria}
 # look at the column names
