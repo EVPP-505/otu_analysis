@@ -26,37 +26,23 @@ library(tidyverse)
 library(vegan) # ecological analysis package
 ```
 
-This notebook extends the work from the emontano_otu_notebook.  Following a discussion with Dr. Morrow, it was determined that focusing the analysis on bacteria was not necessarily the correct thing to do since almost all of the samples were from bacteria.  The suggestion was made to simply exclude Remove chloroplast
+This notebook extends the work from the emontano_otu_notebook.  Following a discussion with Dr. Morrow, it was determined that focusing the analysis on bacteria was not necessarily the correct thing to do since almost all of the samples were from bacteria.  The suggestion was made to simply exclude chloroplast and run the analysis for the rest of the samples.
 
-Bray-Curtis distance matrix across all samples
+This notebook also discusses techniques for reforming/reshaping data frames to make them more accessible to some of the expectations of the analysis programs used.  More specifically, we will take our data that are in a wide format - where each column is a variable and each row is an observation - and make them long - with each column containing multiple observations distinguished by a categorical variable.  We will also look at how to transpose that long form data back into a wide form with new column variables.
 
-PERMANOVA to calulate significance of location.
+We start the anaylsis by loading in the OTU data.  Then let's take a look at the data.
 
-Transpose data; make long
-add factor for location (up/down)
-keep otu as variable
-
-adonis(sample ~ location)
-
-rMDS
-  1) Bray-Curtis - vegan - vegdist
-  2) metaMDS - vegan
-
-
-```{r}
+```{r load-data}
 # read the data from the CSV
 otu_wide <- read_csv("data/RDP_Genus_Pohick.csv")
 # look at the column names
 # colnames(otu_wide)
-```
 
-Let's take a look at the data.
-
-```{r}
 otu_wide
 ```
 
-The PERMANOVA is testing for the sigificant difference between groups of data, upstream versus downstream in this case.  For our data we need to have a new factor variable that groups the samples into upstream and downstream.
+
+Part of the analysis we will perform is a PERMANOVA.  The PERMANOVA is testing for the sigificant difference between groups of data, upstream versus downstream in this case.  For our data we need to have a new factor (categorical) variable that groups the samples into upstream and downstream.
 
 We need to reform the data to make this work with the proposed analysis.  We want to take the original data and make it long.  That is, we want to take all the sample values and create a key:value pair of each sample for each OTU#.  We might also want to keep some descriptive information like Family for example.
 
@@ -78,12 +64,14 @@ We want three columns with `OTU#`, `sample_number`, `sample_measurement`.  We do
 # the word key = "new_column_name_to_hold_old_column_names"
 # the word value = "new_column_name_to_hold_data"
 
-otu_long <-
+otu_long <- # assign the output to a new variable
   otu_wide %>%  # the data to use
     dplyr::select(1, 7, Sample1:Sample12) %>% # select only the columns to use
    gather(key = sample_number, # the key (column names) that will become the categorical or factor
        value = sample_measurement, # the values that are associated with each key
        Sample1:Sample12) # the columns to use
+
+# view the result
 otu_long
 ```
 
@@ -97,58 +85,85 @@ Our operation is: If the value in the column `sample_number` is in the vector of
 # Add a new variable stream_location that defines upstream and downstream locations
 # the first example is a long-hand version that types out all the sample names
 # note: the variable stream_location is used because the word location is a function in dplyr
-otu_long <- otu_long %>% # add to the original long data
-  # mutate creates a new column of the same length
-  # if sample_number is in the vector of samples, then set the value to U,
-  # otherwise, set the value to D
-  mutate(stream_location = if_else(sample_number %in% c("Sample1", "Sample2", "Sample3", "Sample4", "Sample5", "Sample6"), "U", "D"))
+# otu_long <- # add to the original long data by reassigning the output to the same variable
+#   otu_long %>% # use the long data
+#   # mutate creates a new column of the same length
+#   # if sample_number is in the vector of samples, then set the value to U,
+#   # otherwise, set the value to D
+#   mutate(stream_location = if_else(sample_number %in% c("Sample1", "Sample2", "Sample3", "Sample4", "Sample5", "Sample6"), "U", "D"))
 
-otu_long
+
 # here is a more concise version using a string concatination to create the vector of samples
 otu_long <- otu_long %>% # add to the original long data
   # str_c is a string concatination of the word Sample to each number 1-6
   mutate(stream_location = if_else(sample_number %in% str_c("Sample", 1:6), "U", "D"))
+
+# view the result
+otu_long
 ```
 
 We can see if that works by filtering the downstream location, then find the distinct sample numbers.
 
-```{r}
-otu_long %>% 
-  filter(stream_location == "D") %>% 
-  distinct(sample_number)
+```{r filter-location}
+# the code below will just print the result to screen
+# we are not saving the output to a variable because we are just verifying the result
+
+otu_long %>% # use the long data
+  filter(stream_location == "D") %>% # then filter on location is equal to "D"
+  distinct(sample_number) # find the distinct sample_numbers
 ```
 
-I realize I need to **transpose the data** instead.  So, I worked out the following:
+I realize I need to **transpose the data** instead.  A transpose is a rotation of the rectangular data along an axis - make rows the columns or vice versa.  We can modify the process we just used to make the data long to transpose the long form back into wide, thus effectively transposing the original data.  So, I worked out the following:
 
 ```{r}
-otu_t <-
-  otu_wide %>%  # the data to use
-    filter(Class != "Chloroplast") %>% 
-    select(1, Sample1:Sample12) %>% # select only the columns to use
+otu_t <- # assign the result to a new variable
+  otu_wide %>%  # use the original wide data
+    filter(Class != "Chloroplast") %>% # here we can filter out the chloroplast as mentioned earlier
+    # select only the columns to use, this code will select all columns between Sample1 and Sample12
+    select(1, Sample1:Sample12) %>% 
     gather(key = sample_number, # the key (column names) that will become the categorical or factor
        value = sample_measurement, # the values that are associated with each key
-       Sample1:Sample12) %>% 
+       Sample1:Sample12) %>% # the column data to use
+    # this next part takes the now long data and spreads it back into a wide format
+    # We will transpose the data by spreading the OTU# across columns
     spread(`OTU#`, sample_measurement) %>% 
+    # Add in the factor for stream location
     mutate(stream_location = if_else(sample_number %in% str_c("Sample", 1:6), "U", "D")) %>% 
-    select(sample_number, stream_location, everything(.)) #rearrange the columns
+    # rearrange the columns
+    select(sample_number, stream_location, everything(.))
+
 # see the result
 otu_t 
 ```
 
+The base R function `t()` will transpose a matrix of data, and will work on data frames.  However, the result of `t()` is a matrix, **not** a data frame, so we lose all the data manipulation capabilities of the data frame.  By transposing the data as we did above, we can keep our ability to wangle the data using techniques we have learned, but maintain the data in the format other analyses expect.
+
+
 ## Multivariate analysis
 
-Calculate the bray distance for clustering
+The first analysis is to calculate the bray distance (dissimilarity) between samples for clustering.
 
-```{r}
-# first separate the matrix from the main data frame for ease
-sp_mat <- otu_t %>% 
+```{r select-matrix}
+# first separate the data matrix (out# data) from the main data frame for ease
+sp_mat <- otu_t %>%
   select(-c(1:2)) # omit the first two columns
+# look at the result
 sp_mat
+```
 
-bc_dist <- vegdist(sp_mat, method = "bray") # calculate the distance matrix
+We now have a matrix-like data frame of data for the analysis functions to use.
 
-# the distance matrix
+```{r calc-bray}
+# calculate the distance matrix
+bc_dist <- vegdist(sp_mat, method = "bray") 
+
+# look at the distance matrix
 bc_dist
+```
+
+Now we can run a cluster analysis to see what samples are similar.  For now, we will use the built-in plot functions from the vegan package.  In the future we can look at how to replicate the result plots in gglot2.
+
+```{r calc-cluster}
 
 # cluster communities using average-linkage algorithm
 comm_bc_clust <- hclust(bc_dist, method = "average")
@@ -157,16 +172,21 @@ comm_bc_clust <- hclust(bc_dist, method = "average")
 plot(comm_bc_clust, ylab = "Bray-Curtis dissimilarity",
      xlab = "Bray Distance Cluster",
      main = "Cluster Dendrogram by Sample Site")
-
-
 ```
+
+The plot indicates two main branches of the tree, sample 3 and the rest.  Of the remaining branches, 5 and 6 are both downstream and indicate relation, but the other samples do not show a clear indication of location being a factor.  We will test this using multivariate analysis.
+
 
 ## Multivariate
 
-```{r}
-# Taxonomic (Bray-Curtis) dissimilarity explained
-adonis(bc_dist ~ otu_t$stream_location)
+The PERMANOVA is testing for the sigificant difference between groups of data, upstream versus downstream in this case.  The function `adonis()` from the `vegan` package will run the analysis using the bray-curtis matrix we calculated above.  A formula in R is written as `dependent variable(s) (y) ~ (tilde) independent variable(s) (x)`.  Our formula is simply two variables, the bray-curtis and the stream locations we assigned to the data earlier.  We use the location variables from the transposed data frame to be consistent with the distance matrix.
+
+```{r permanova}
+# run the permanova
+adonis(bc_dist ~ otu_t$stream_location) # the $ extracts the column of stream locations from otu_t
 ```
+
+This output tells us that our `adonis` test is not significant, so we cannot reject the null hypothesis that our sites have the same centroid.  Stream location is not significant (Pr(>F) ~= 0.628) in the analysis, which is consistent with the cluster analysis not indicating clear clusters of upstream vs. downstream samples.  We can also run a homogeniety of sample dispersion to confirm.
 
 ```{r}
 # Homogeneity of dispersion test
@@ -175,46 +195,56 @@ permutest(beta)
 ```
 
 
+Additionally, our `betadisper` results are not significant, meaning we cannot reject the null hypothesis that our groups have the same dispersions. Again, the result of the groups (locations) is not significant (Pr(>F) ~= 0.968).
+
+
 ## NMDS
 
-```{r}
-# calculate the mds
+```{r nmds}
+# rescale the data to test
 sp_mat_scaled <- sp_mat * 1000
-sp_mat_scaled
+# sp_mat_scaled
+
+# calculate the mds
 sp_mds <- metaMDS(sp_mat_scaled, distance = "bray")#, trace = FALSE)
 sp_mds
 
-ordiplot(sp_mds, display = "sites", type = "text")
-plot(sp_mds, type = "t")
-stressplot(sp_mds)
+# ordiplot(sp_mds, display = "sites", type = "text")
+# plot(sp_mds, type = "t")
+# stressplot(sp_mds)
 ```
 
+The model does not converge well (weak stress), suggesting a weak solution consistent with our earlier findings for the insignificance of location.  We can use the results of the NMDS to generate a nice ggplot.  To do this, we need to create a new data frame (a dplyr tibble in this case) and assign the various components of the model to new columns.
 
-```{r}
-nmds <- tibble(MDS1 = sp_mds$points[,1],
-               MDS2 = sp_mds$points[,2],
-               sample_number = otu_t$sample_number,
-               stream_location = otu_t$stream_location)
+```{r nmds-dataframe}
+# create a tibble dataframe
+nmds <- tibble(MDS1 = sp_mds$points[,1], # extract the x points
+               MDS2 = sp_mds$points[,2], # extact the y points
+               sample_number = otu_t$sample_number, # add in the sample numbers from the input data
+               stream_location = otu_t$stream_location) # add in the stream locations
 nmds
 ```
 
-```{r}
-ggplot(nmds, aes(x=MDS1, y=MDS2, col=stream_location)) +
- geom_point() +
- stat_ellipse() +
- theme_bw() +
- labs(title = "NMDS Plot")
+Now we can quickly generate a nice plot of the results colored by stream location.
+
+```{r plot-nmds}
+
+ggplot(nmds, # use the new tibble
+       aes(x=MDS1, 
+           y=MDS2, 
+           col=stream_location )) + # each stream location will get a different color
+ geom_point() + # plot the x/y points
+ stat_ellipse() + # generate an ellipse around the groups
+ theme_bw() + # a clean theme
+ labs(title = "NMDS Plot") # assign the title
 ```
 
-
-This output tells us that our adonis test is not significant so we cannot reject the null hypothesis that our sites have the same centroid.
-
-Additionally, our betadisper results are not significant, meaning we cannot reject the null hypothesis that our groups have the same dispersions. 
-
-
+We can see from the plot that there are no distinct groups, except for sample 3, which we saw in the cluster analysis.
 
 
 ## PCA
+
+This analysis is not complete, but here is some code for running a principle-component analysis.
 
 ```{r pca}
 pca1 <- otu_wide %>% 

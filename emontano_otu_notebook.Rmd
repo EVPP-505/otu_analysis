@@ -44,6 +44,7 @@ We might start with describing different aspects of the data. How many kingdoms 
 
 ```{r kingdoms}
 otu_data %>% 
+  
   distinct(Kingdom)
 ```
 
