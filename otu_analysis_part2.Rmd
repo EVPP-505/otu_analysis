@@ -1,0 +1,233 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+
+# we might need libraries for analysis that are not be installed.
+# the following code will test for the presence of the library and install if necessary
+# create a list of packages to be tested
+list_of_packages <- c("vegan")#, "tidyverse", "indicspecies")
+# compare the list to the installed packages
+new_packages <- list_of_packages[!(list_of_packages %in% installed.packages()[,"Package"])]
+# install packages if not found
+if(length(new_packages) > 0){install.packages(new_packages)}
+
+# load the libraries individually
+# library(tidyr)
+# library(dplyr)
+# library(readr)
+# library(stringr)
+
+# load the tidyverse as a single call
+# this will load all of the above, as well as ggplot2
+library(tidyverse)
+library(vegan) # ecological analysis package
+```
+
+This notebook extends the work from the emontano_otu_notebook.  Following a discussion with Dr. Morrow, it was determined that focusing the analysis on bacteria was not necessarily the correct thing to do since almost all of the samples were from bacteria.  The suggestion was made to simply exclude Remove chloroplast
+
+Bray-Curtis distance matrix across all samples
+
+PERMANOVA to calulate significance of location.
+
+Transpose data; make long
+add factor for location (up/down)
+keep otu as variable
+
+adonis(sample ~ location)
+
+rMDS
+  1) Bray-Curtis - vegan - vegdist
+  2) metaMDS - vegan
+
+
+```{r}
+# read the data from the CSV
+otu_wide <- read_csv("data/RDP_Genus_Pohick.csv")
+# look at the column names
+# colnames(otu_wide)
+```
+
+Let's take a look at the data.
+
+```{r}
+otu_wide
+```
+
+The PERMANOVA is testing for the sigificant difference between groups of data, upstream versus downstream in this case.  For our data we need to have a new factor variable that groups the samples into upstream and downstream.
+
+We need to reform the data to make this work with the proposed analysis.  We want to take the original data and make it long.  That is, we want to take all the sample values and create a key:value pair of each sample for each OTU#.  We might also want to keep some descriptive information like Family for example.
+
+So, the final data will look something like: 
+
+OTU#  | Family  | sample_number | sample_measurment
+OTU1  | name1   | sample1       | 0.0001
+OTU1  | name 1  | sample2       | 0.0002
+
+
+The `gather()` function, part of the `tidyverse` (`tidyr` package more specifically) is designed for just this task.  The function call can be a little confusing, so I will try to break it down.
+
+We want three columns with `OTU#`, `sample_number`, `sample_measurement`.  We do this by using **key**, **value** pairs.  A **key** column contains the values from former **column names** as factors, and a value column contains the **values** from each of those columns.
+
+```{r gather}
+# gather the wide data into a long format.
+# The OTU# and Family will be maintained and will be extended as necessary
+# The format of the key/value arguments are:
+# the word key = "new_column_name_to_hold_old_column_names"
+# the word value = "new_column_name_to_hold_data"
+
+otu_long <-
+  otu_wide %>%  # the data to use
+    dplyr::select(1, 7, Sample1:Sample12) %>% # select only the columns to use
+   gather(key = sample_number, # the key (column names) that will become the categorical or factor
+       value = sample_measurement, # the values that are associated with each key
+       Sample1:Sample12) # the columns to use
+otu_long
+```
+
+Notice we now have 17,000 rows of data instead of the 1,475 we started with.  This is the correct result of (1475 distinct OTU# * 12 samples = 17,700)
+
+Now we need to define the upstream and downstream factors.  We will add a new column using the `mutate()` function to conditionally add a flag for location.  The `if_else()` function is a conditional operator that tests some condition and applys the appropriate value.
+
+Our operation is: If the value in the column `sample_number` is in the vector of strings `c("Sample1", "Sample2", "Sample3", "Sample4", "Sample5", "Sample6")`, then set the value to `"U"` in the new column `location`, otherwise, set the value in `location` to `"D"`.
+
+```{r create-location}
+# Add a new variable stream_location that defines upstream and downstream locations
+# the first example is a long-hand version that types out all the sample names
+# note: the variable stream_location is used because the word location is a function in dplyr
+otu_long <- otu_long %>% # add to the original long data
+  # mutate creates a new column of the same length
+  # if sample_number is in the vector of samples, then set the value to U,
+  # otherwise, set the value to D
+  mutate(stream_location = if_else(sample_number %in% c("Sample1", "Sample2", "Sample3", "Sample4", "Sample5", "Sample6"), "U", "D"))
+
+otu_long
+# here is a more concise version using a string concatination to create the vector of samples
+otu_long <- otu_long %>% # add to the original long data
+  # str_c is a string concatination of the word Sample to each number 1-6
+  mutate(stream_location = if_else(sample_number %in% str_c("Sample", 1:6), "U", "D"))
+```
+
+We can see if that works by filtering the downstream location, then find the distinct sample numbers.
+
+```{r}
+otu_long %>% 
+  filter(stream_location == "D") %>% 
+  distinct(sample_number)
+```
+
+I realize I need to **transpose the data** instead.  So, I worked out the following:
+
+```{r}
+otu_t <-
+  otu_wide %>%  # the data to use
+    filter(Class != "Chloroplast") %>% 
+    select(1, Sample1:Sample12) %>% # select only the columns to use
+    gather(key = sample_number, # the key (column names) that will become the categorical or factor
+       value = sample_measurement, # the values that are associated with each key
+       Sample1:Sample12) %>% 
+    spread(`OTU#`, sample_measurement) %>% 
+    mutate(stream_location = if_else(sample_number %in% str_c("Sample", 1:6), "U", "D")) %>% 
+    select(sample_number, stream_location, everything(.)) #rearrange the columns
+# see the result
+otu_t 
+```
+
+## Multivariate analysis
+
+Calculate the bray distance for clustering
+
+```{r}
+# first separate the matrix from the main data frame for ease
+sp_mat <- otu_t %>% 
+  select(-c(1:2)) # omit the first two columns
+sp_mat
+
+bc_dist <- vegdist(sp_mat, method = "bray") # calculate the distance matrix
+
+# the distance matrix
+bc_dist
+
+# cluster communities using average-linkage algorithm
+comm_bc_clust <- hclust(bc_dist, method = "average")
+
+# plot cluster diagram
+plot(comm_bc_clust, ylab = "Bray-Curtis dissimilarity",
+     xlab = "Bray Distance Cluster",
+     main = "Cluster Dendrogram by Sample Site")
+
+
+```
+
+## Multivariate
+
+```{r}
+# Taxonomic (Bray-Curtis) dissimilarity explained
+adonis(bc_dist ~ otu_t$stream_location)
+```
+
+```{r}
+# Homogeneity of dispersion test
+beta <- betadisper(bc_dist, otu_t$stream_location)
+permutest(beta)
+```
+
+
+## NMDS
+
+```{r}
+# calculate the mds
+sp_mat_scaled <- sp_mat * 1000
+sp_mat_scaled
+sp_mds <- metaMDS(sp_mat_scaled, distance = "bray")#, trace = FALSE)
+sp_mds
+
+ordiplot(sp_mds, display = "sites", type = "text")
+plot(sp_mds, type = "t")
+stressplot(sp_mds)
+```
+
+
+```{r}
+nmds <- tibble(MDS1 = sp_mds$points[,1],
+               MDS2 = sp_mds$points[,2],
+               sample_number = otu_t$sample_number,
+               stream_location = otu_t$stream_location)
+nmds
+```
+
+```{r}
+ggplot(nmds, aes(x=MDS1, y=MDS2, col=stream_location)) +
+ geom_point() +
+ stat_ellipse() +
+ theme_bw() +
+ labs(title = "NMDS Plot")
+```
+
+
+This output tells us that our adonis test is not significant so we cannot reject the null hypothesis that our sites have the same centroid.
+
+Additionally, our betadisper results are not significant, meaning we cannot reject the null hypothesis that our groups have the same dispersions. 
+
+
+
+
+## PCA
+
+```{r pca}
+pca1 <- otu_wide %>% 
+  select(Sample1:Sample12) %>% 
+  # apply PCA - scale. = TRUE is highly 
+# advisable, but default is FALSE. 
+  prcomp(.,
+         center = TRUE,
+         scale. = TRUE)
+
+summary(pca1)
+
+# plot method
+plot(pca1, type = "l")
+```
+
