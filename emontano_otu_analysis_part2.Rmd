@@ -4,16 +4,16 @@ date: "1-May-2018"
 output: html_notebook
 ---
 
-```{r}
+```{r load-libraries}
 
 # we might need libraries for analysis that are not be installed.
 # the following code will test for the presence of the library and install if necessary
 # create a list of packages to be tested
-list_of_packages <- c("vegan")#, "tidyverse", "indicspecies")
-# compare the list to the installed packages
-new_packages <- list_of_packages[!(list_of_packages %in% installed.packages()[,"Package"])]
-# install packages if not found
-if(length(new_packages) > 0){install.packages(new_packages)}
+# list_of_packages <- c("vegan")#, "tidyverse", "indicspecies")
+# # compare the list to the installed packages
+# new_packages <- list_of_packages[!(list_of_packages %in% installed.packages()[,"Package"])]
+# # install packages if not found
+# if(length(new_packages) > 0){install.packages(new_packages)}
 
 # load the libraries individually
 # library(tidyr)
@@ -32,6 +32,7 @@ This notebook extends the work from the emontano_otu_notebook.  Following a disc
 This notebook also discusses techniques for reforming/reshaping data frames to make them more accessible to some of the expectations of the analysis programs used.  More specifically, we will take our data that are in a wide format - where each column is a variable and each row is an observation - and make them long - with each column containing multiple observations distinguished by a categorical variable.  We will also look at how to transpose that long form data back into a wide form with new column variables.
 
 We start the anaylsis by loading in the OTU data.  Then let's take a look at the data.
+
 
 ```{r load-data}
 # read the data from the CSV
